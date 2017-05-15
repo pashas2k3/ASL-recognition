@@ -77,6 +77,16 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
+
+        try:
+            
+
+        except:
+            pass;
+
+        
+
+
         raise NotImplementedError
 
 
