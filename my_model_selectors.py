@@ -77,17 +77,26 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
+        min_bic_model = [];
+        min_bic_score = math.inf;
+        for n_component in range(self.min_n_components, self.max_n_components+1):
+            try:
+                # Train the base_model and check the results
+                curr_model = self.base_model(n_component);
+                logL = curr_model.score(self.X, self.lengths);
+                N = len(self.X);
+                n_parameters = n_component * n_component + 2*n_component * len(self.X[0]) - 1
+                # Track the max BIC score and corresponding
+                # number of components and model
+                bic_score = -2*logL + n_parameters* np.log(N);
+                if (bic_score < min_bic_score):
+                    min_bic_model = curr_model;
+                    min_bic_score = bic_score;
+            except:
+                pass;
 
-        try:
-            
-
-        except:
-            pass;
-
-        
-
-
-        raise NotImplementedError
+#        print ("Num components {}".format(min_bic_model.n_components))
+        return min_bic_model;
 
 
 class SelectorDIC(ModelSelector):
@@ -101,9 +110,25 @@ class SelectorDIC(ModelSelector):
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        max_dic_score = -math.inf;
+        max_dic_model = [];
+        
+        for n_component in range(self.min_n_components, self.max_n_components+1):
+            try:
+                notLogL = [];
+                curr_model = self.base_model(n_component);
+                logL = curr_model.score(self.X, self.lengths);
+                for word in self.hwords:
+                    if word == self.this_word:
+                        continue;
+                    curr_X, curr_lengths = self.hwords[word];
+                    notLogL.append(curr_model.score(curr_X, curr_lengths));
+                    curr_dic = logL - np.mean(notLogL);
+                    if curr_dic > max_dic_score:
+                        max_dic_model = curr_model;
+            except:
+                pass;
+        return max_dic_model;
 
 
 class SelectorCV(ModelSelector):
@@ -115,4 +140,27 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+        max_logL_model = [];
+        max_logL_mean = -math.inf;
+        for n_component in range(self.min_n_components, self.max_n_components+1):
+            try:
+                split_method = KFold(n_splits = min(3, len(self.sequences)));
+                curr_logL = [];curr_model = [];
+                for cv_train, cv_test in split_method.split(self.sequences):
+                    X_train, lengths_train = combine_sequences(cv_train, self.sequences);
+                    X_test, lengths_test = combine_sequences(cv_test, self.sequences);
+
+                    
+                    curr_model = GaussianHMM(n_components=n_component, covariance_type="diag", n_iter=1000,
+                                             random_state=self.random_state, verbose=False).fit(X_train, lengths_train);
+                    curr_logL.append(curr_model.score(X_test, lengths_test));
+
+                curr_logL_mean = np.mean(curr_logL);
+                if curr_logL_mean > max_logL_mean:
+                    max_logL_model = curr_model;
+                    max_logL_mean = curr_logL_mean;
+            except:
+                pass;
+        
+        return max_logL_model;
+        
